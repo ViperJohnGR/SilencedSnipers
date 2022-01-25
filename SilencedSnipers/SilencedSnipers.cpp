@@ -1,10 +1,13 @@
 #include "plugin.h"
+#include "Hooks.hpp"
 
 #include <vector>
+#include <map>
 
 using namespace plugin;
 
 std::vector<short> snipers;
+std::map<unsigned int, std::pair<void*, void*>> hookedCalls;
 unsigned int currentModel = -1;
 
 
@@ -31,6 +34,7 @@ void __declspec(naked) changeType2()
     }
 }
 
+template <unsigned int address>
 char __fastcall CWeaponFireHooked(CWeapon* weapon, void*, CPed* owner, CVector* vecOrigin, CVector* vecEffectPosn, CEntity* targetEntity, CVector* vecTarget, CVector* arg_14)
 {
     if (weapon == NULL)
@@ -50,7 +54,8 @@ char __fastcall CWeaponFireHooked(CWeapon* weapon, void*, CPed* owner, CVector* 
         injector::MakeJMP(0x73AC43, changeType2); //Get actual sniper stats for damage etc.
 
         weapon->m_nType = WEAPON_PISTOL_SILENCED;
-        char retVal = weapon->Fire(owner, vecOrigin, vecEffectPosn, targetEntity, vecTarget, arg_14);
+        //char retVal = weapon->Fire(owner, vecOrigin, vecEffectPosn, targetEntity, vecTarget, arg_14);
+        char retVal = callMethodOriginalAndReturn<bool, address>(weapon, owner, vecOrigin, vecEffectPosn, targetEntity, vecTarget, arg_14);
         weapon->m_nType = (eWeaponType)weaponType;
 
         //restore original program functionality
@@ -64,7 +69,7 @@ char __fastcall CWeaponFireHooked(CWeapon* weapon, void*, CPed* owner, CVector* 
         return retVal;
     }
 
-    return weapon->Fire(owner, vecOrigin, vecEffectPosn, targetEntity, vecTarget, arg_14);
+    return callMethodOriginalAndReturn<bool, address>(weapon, owner, vecOrigin, vecEffectPosn, targetEntity, vecTarget, arg_14);
 }
 
 class SilencedSnipers {
@@ -77,10 +82,10 @@ public:
             snipers.push_back(atoi(str.c_str()));        
   
 
-        patch::RedirectCall(0x61ECCD, CWeaponFireHooked);
-        patch::RedirectCall(0x68626D, CWeaponFireHooked);
-        patch::RedirectCall(0x686283, CWeaponFireHooked);
-        patch::RedirectCall(0x686787, CWeaponFireHooked);
+        hookCall(0x61ECCD, CWeaponFireHooked<0x61ECCD>);
+        hookCall(0x68626D, CWeaponFireHooked<0x68626D>);
+        hookCall(0x686283, CWeaponFireHooked<0x686283>);
+        hookCall(0x686787, CWeaponFireHooked<0x686787>);
 
 
         //CMessages::AddMessageJumpQ((char*)"Key Pressed", 100, 0, false);
